@@ -1,0 +1,52 @@
+services:
+  # Backend API
+  - type: web
+    name: eqb-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eqb-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: eqb-redis
+          property: connectionString
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        value: noreply@eqbplatform.com
+      - key: FROM_NAME
+        value: EQB Platform
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-south-1
+      - key: AWS_S3_BUCKET_NAME
+        value: eqb-platform-documents
+      - key: WEB_BASE_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+    healthCheckPath: /health
+
+databases:
+  - name: eqb-db
+    databaseName: eqb_platform
+    user: eqb_user
+
+  - name: eqb-redis
+    plan: free

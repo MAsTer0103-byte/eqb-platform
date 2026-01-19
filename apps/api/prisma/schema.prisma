@@ -1,0 +1,524 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  role      UserRole   @default(COWORKER)
+  auth0Id   String     @unique
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  coworkerProfile Coworker?
+  adminProfile    Admin?
+  appointments    Appointment[]
+  modificationRequests ModificationRequest[]
+  invoices        Invoice[]
+  auditLogs       AuditLog[]
+
+  @@index([role])
+  @@index([status])
+}
+
+enum UserRole {
+  ADMIN
+  COWORKER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+model Coworker {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Profile
+  phone              String?
+  bio                String?
+  specializations    String[] @default([])
+  profileImageUrl    String?
+
+  // Financial
+  iban               String?
+  taxId              String?
+  companyName        String?
+
+  // Status
+  isActive           Boolean @default(true)
+  hasRestriction     Boolean @default(false)
+  restrictionReason  String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  appointments       Appointment[]
+  clients            CoworkerClient[]
+  monthlyRecaps      MonthlyRecap[]
+  bookingRestrictions BookingRestriction[]
+  backlogEntries     BacklogEntry[]
+  modificationRequests ModificationRequest[]
+
+  @@index([isActive])
+  @@index([hasRestriction])
+}
+
+model Admin {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  permissions String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  approvedRequests ModificationRequest[]
+}
+
+// ============================================================================
+// CLIENTS & APPOINTMENTS
+// ============================================================================
+
+model Client {
+  id    String @id @default(cuid())
+  email String @unique
+  name  String
+  phone String?
+
+  // Additional info
+  taxId           String?
+  address         String?
+  city            String?
+  postalCode      String?
+  birthDate       DateTime?
+
+  // Medical
+  medicalHistory  String?
+  allergies       String?
+  medications     String?
+
+  // Status
+  status          ClientStatus @default(ACTIVE)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  appointments    Appointment[]
+  coworkers       CoworkerClient[]
+  documents       ClientDocument[]
+
+  @@index([email])
+  @@index([status])
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model CoworkerClient {
+  id          String @id @default(cuid())
+  coworkerId  String
+  clientId    String
+
+  coworker    Coworker @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([coworkerId, clientId])
+  @@index([clientId])
+}
+
+model ClientDocument {
+  id        String @id @default(cuid())
+  clientId  String
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  fileName  String
+  fileUrl   String   // S3 URL
+  fileType  String   // PDF, DOC, etc.
+  category  String   // Medical, Agreement, etc.
+
+  uploadedAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  coworkerId    String
+  clientId      String
+  userId        String   // Admin who created
+
+  coworker      Coworker @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id])
+
+  // Timing
+  startTime     DateTime
+  endTime       DateTime
+  durationHours Float
+
+  // Info
+  type          String   // "Training", "Treatment", etc.
+  notes         String?
+
+  // Status
+  status        AppointmentStatus @default(SCHEDULED)
+  cancelledAt   DateTime?
+  cancelledBy   String?
+
+  // Room
+  roomType      String   // "Training" or "Treatment"
+  roomNumber    Int?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  modificationRequests ModificationRequest[]
+  backlogEntry  BacklogEntry?
+
+  @@index([coworkerId])
+  @@index([clientId])
+  @@index([status])
+  @@index([startTime])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MODIFIED
+}
+
+// ============================================================================
+// MODIFICATION & AUTHORIZATION
+// ============================================================================
+
+model ModificationRequest {
+  id              String @id @default(cuid())
+  appointmentId   String
+  coworkerId      String
+  requestedBy     String
+
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  coworker        Coworker    @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [requestedBy], references: [id])
+
+  // Modification details
+  requestType     ModificationType
+  newStartTime    DateTime?
+  newEndTime      DateTime?
+  reason          String
+
+  // Status
+  status          AuthorizationStatus @default(PENDING)
+  approvedBy      String?
+  approvedAdmin   Admin?              @relation(fields: [approvedBy], references: [id])
+  rejectionReason String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([coworkerId])
+}
+
+enum ModificationType {
+  RESCHEDULE
+  CANCEL_WITH_CHANGE
+  EXTEND
+}
+
+enum AuthorizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================================
+// BACKLOG & CAPACITY
+// ============================================================================
+
+model BacklogEntry {
+  id            String @id @default(cuid())
+  appointmentId String @unique
+  coworkerId    String
+
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  coworker      Coworker    @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+
+  // Hours
+  hoursWorked   Float
+  roomType      String   // "Training" or "Treatment"
+
+  // Month reference
+  month         Int     // 1-12
+  year          Int
+  dayWorked     Int
+
+  // Status
+  status        BacklogStatus @default(OPEN)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([coworkerId, year, month])
+  @@index([status])
+}
+
+enum BacklogStatus {
+  OPEN
+  PENDING_CONFIRMATION
+  CONFIRMED
+  CONTESTED
+}
+
+model MonthlyRecap {
+  id          String @id @default(cuid())
+  coworkerId  String
+  month       Int     // 1-12
+  year        Int
+
+  coworker    Coworker @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+
+  // Hours summary
+  totalHours        Float
+  trainingHours     Float
+  treatmentHours    Float
+  appointmentCount  Int
+
+  // Status
+  status            RecapStatus @default(OPEN)
+  confirmedAt       DateTime?
+  rejectionReason   String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([coworkerId, year, month])
+  @@index([status])
+}
+
+enum RecapStatus {
+  OPEN
+  REQUESTED
+  CONFIRMED
+  CONTESTED
+  APPROVED
+}
+
+// ============================================================================
+// INVOICING & PAYMENTS
+// ============================================================================
+
+model Invoice {
+  id              String @id @default(cuid())
+  coworkerId      String
+  userId          String
+  month           Int
+  year            Int
+
+  coworker        User   @relation(fields: [userId], references: [id])
+
+  // Amount
+  totalAmount     Float
+  currency        String @default("EUR")
+
+  // Hours detail
+  hoursWorked     Float
+  hourlyRate      Float
+
+  // Document
+  invoiceNumber   String @unique
+  pdfUrl          String?
+  backlogAttachmentUrl String?
+
+  // Status
+  status          InvoiceStatus @default(GENERATED)
+  sentAt          DateTime?
+  receivedAt      DateTime?
+
+  // Payment
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentDate     DateTime?
+  paymentMethod   String?
+  paymentReference String?
+  paymentEvidence String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([coworkerId, year, month])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+enum InvoiceStatus {
+  GENERATED
+  SENT
+  RECEIVED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+// ============================================================================
+// RESTRICTIONS & BLOCKING
+// ============================================================================
+
+model BookingRestriction {
+  id          String @id @default(cuid())
+  coworkerId  String
+  coworker    Coworker @relation(fields: [coworkerId], references: [id], onDelete: Cascade)
+
+  // Reason
+  reason      String
+  description String?
+
+  // Timing
+  startDate   DateTime
+  endDate     DateTime?
+
+  // Status
+  isActive    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([coworkerId])
+  @@index([isActive])
+}
+
+// ============================================================================
+// COMMUNICATIONS
+// ============================================================================
+
+model Communication {
+  id        String @id @default(cuid())
+  type      CommunicationType
+  title     String
+  message   String
+  body      String
+
+  // Targeting
+  targetRole UserRole?
+  sendToAll  Boolean @default(false)
+
+  // Status
+  isPublished Boolean @default(false)
+  publishedAt DateTime?
+
+  // Files
+  attachmentUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reads     CommunicationRead[]
+
+  @@index([type])
+  @@index([isPublished])
+}
+
+enum CommunicationType {
+  ANNOUNCEMENT
+  ALERT
+  REMINDER
+  UPDATE
+}
+
+model CommunicationRead {
+  id              String @id @default(cuid())
+  communicationId String
+  communication   Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+
+  readBy          String
+  readAt          DateTime @default(now())
+
+  @@unique([communicationId, readBy])
+}
+
+// ============================================================================
+// AUDIT & LOGGING
+// ============================================================================
+
+model AuditLog {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+}
+
+// ============================================================================
+// CAPACITY TRACKING
+// ============================================================================
+
+model CapacitySnapshot {
+  id        String @id @default(cuid())
+  month     Int
+  year      Int
+
+  // Capacity (Max 1500 hours/month)
+  totalAvailableHours   Float @default(1500)
+  totalUsedHours        Float @default(0)
+  utilisationPercentage Float @default(0)
+
+  // By room type
+  trainingUsedHours     Float @default(0)
+  treatmentUsedHours    Float @default(0)
+
+  // Coworker count
+  activeCoworkers       Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+}

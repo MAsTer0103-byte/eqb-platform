@@ -1,0 +1,402 @@
+import prisma from '../database/prisma';
+import { logger } from '../utils/logger';
+import { Role, UserStatus } from '@prisma/client';
+import bcrypt from 'bcrypt';
+
+export interface UserWithDetails {
+  id: string;
+  email: string;
+  role: Role;
+  status: UserStatus;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  coworker?: {
+    id: string;
+    specialization?: string;
+    hourlyRate: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  role: Role;
+  specialization?: string;
+  hourlyRate?: number;
+}
+
+export interface UpdateUserInput {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  role?: Role;
+  status?: UserStatus;
+  specialization?: string;
+  hourlyRate?: number;
+}
+
+export interface SystemStatistics {
+  totalUsers: number;
+  activeUsers: number;
+  totalCoworkers: number;
+  totalClients: number;
+  totalAppointments: number;
+  completedAppointments: number;
+  pendingAppointments: number;
+  totalHoursWorked: number;
+  monthlyHoursWorked: number;
+}
+
+export class AdminService {
+  /**
+   * Get all users with details
+   */
+  async getAllUsers(includeInactive: boolean = false): Promise<UserWithDetails[]> {
+    const users = await prisma.user.findMany({
+      where: includeInactive ? {} : { status: 'ACTIVE' },
+      include: {
+        coworker: {
+          select: {
+            id: true,
+            specialization: true,
+            hourlyRate: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return users;
+  }
+
+  /**
+   * Get user by ID with full details
+   */
+  async getUserById(userId: string): Promise<UserWithDetails | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        coworker: {
+          select: {
+            id: true,
+            specialization: true,
+            hourlyRate: true,
+          },
+        },
+      },
+    });
+
+    return user;
+  }
+
+  /**
+   * Create new user with optional coworker profile
+   */
+  async createUser(data: CreateUserInput): Promise<UserWithDetails> {
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        password: hashedPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phoneNumber: data.phoneNumber,
+        role: data.role,
+        status: 'ACTIVE',
+      },
+      include: {
+        coworker: {
+          select: {
+            id: true,
+            specialization: true,
+            hourlyRate: true,
+          },
+        },
+      },
+    });
+
+    // Create coworker profile if role is OPERATOR
+    if (data.role === 'OPERATOR') {
+      await prisma.coworker.create({
+        data: {
+          userId: user.id,
+          specialization: data.specialization,
+          hourlyRate: data.hourlyRate || 25, // Default hourly rate
+        },
+      });
+
+      // Reload user with coworker data
+      const userWithCoworker = await this.getUserById(user.id);
+      if (userWithCoworker) {
+        return userWithCoworker;
+      }
+    }
+
+    logger.info(`Admin created new user: ${user.email} with role ${user.role}`);
+
+    return user;
+  }
+
+  /**
+   * Update user details
+   */
+  async updateUser(userId: string, data: UpdateUserInput): Promise<UserWithDetails> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { coworker: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (data.email && data.email !== user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.email },
+      });
+
+      if (existingUser) {
+        throw new Error('Email already in use by another user');
+      }
+    }
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phoneNumber: data.phoneNumber,
+        role: data.role,
+        status: data.status,
+      },
+      include: {
+        coworker: {
+          select: {
+            id: true,
+            specialization: true,
+            hourlyRate: true,
+          },
+        },
+      },
+    });
+
+    // Update coworker profile if exists and data provided
+    if (user.coworker && (data.specialization !== undefined || data.hourlyRate !== undefined)) {
+      await prisma.coworker.update({
+        where: { id: user.coworker.id },
+        data: {
+          ...(data.specialization !== undefined && { specialization: data.specialization }),
+          ...(data.hourlyRate !== undefined && { hourlyRate: data.hourlyRate }),
+        },
+      });
+    }
+
+    // Create coworker profile if role changed to OPERATOR and doesn't exist
+    if (data.role === 'OPERATOR' && !user.coworker) {
+      await prisma.coworker.create({
+        data: {
+          userId: user.id,
+          specialization: data.specialization,
+          hourlyRate: data.hourlyRate || 25,
+        },
+      });
+    }
+
+    logger.info(`Admin updated user: ${userId}`);
+
+    return await this.getUserById(userId) as UserWithDetails;
+  }
+
+  /**
+   * Deactivate user (soft delete)
+   */
+  async deactivateUser(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'INACTIVE',
+      },
+    });
+
+    logger.info(`Admin deactivated user: ${userId}`);
+  }
+
+  /**
+   * Activate user
+   */
+  async activateUser(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'ACTIVE',
+      },
+    });
+
+    logger.info(`Admin activated user: ${userId}`);
+  }
+
+  /**
+   * Delete user permanently (hard delete)
+   */
+  async deleteUser(userId: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { coworker: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Delete coworker profile if exists
+    if (user.coworker) {
+      await prisma.coworker.delete({
+        where: { id: user.coworker.id },
+      });
+    }
+
+    // Delete user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    logger.warn(`Admin permanently deleted user: ${userId}`);
+  }
+
+  /**
+   * Change user role
+   */
+  async changeUserRole(userId: string, newRole: Role): Promise<UserWithDetails> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { coworker: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Update role
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role: newRole },
+      include: {
+        coworker: {
+          select: {
+            id: true,
+            specialization: true,
+            hourlyRate: true,
+          },
+        },
+      },
+    });
+
+    // Create coworker profile if role changed to OPERATOR and doesn't exist
+    if (newRole === 'OPERATOR' && !user.coworker) {
+      await prisma.coworker.create({
+        data: {
+          userId: user.id,
+          hourlyRate: 25, // Default hourly rate
+        },
+      });
+    }
+
+    logger.info(`Admin changed user ${userId} role to ${newRole}`);
+
+    return await this.getUserById(userId) as UserWithDetails;
+  }
+
+  /**
+   * Get system-wide statistics
+   */
+  async getSystemStatistics(): Promise<SystemStatistics> {
+    const [
+      totalUsers,
+      activeUsers,
+      totalCoworkers,
+      totalClients,
+      totalAppointments,
+      completedAppointments,
+      pendingAppointments,
+      backlogEntries,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { status: 'ACTIVE' } }),
+      prisma.coworker.count(),
+      prisma.client.count({ where: { status: 'ACTIVE' } }),
+      prisma.appointment.count(),
+      prisma.appointment.count({ where: { status: 'COMPLETED' } }),
+      prisma.appointment.count({ where: { status: 'SCHEDULED' } }),
+      prisma.backlogEntry.findMany(),
+    ]);
+
+    const totalHoursWorked = backlogEntries.reduce((sum, entry) => sum + entry.hoursWorked, 0);
+
+    // Get current month hours
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthlyBacklog = await prisma.backlogEntry.findMany({
+      where: {
+        date: {
+          gte: monthStart,
+        },
+      },
+    });
+
+    const monthlyHoursWorked = monthlyBacklog.reduce((sum, entry) => sum + entry.hoursWorked, 0);
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalCoworkers,
+      totalClients,
+      totalAppointments,
+      completedAppointments,
+      pendingAppointments,
+      totalHoursWorked,
+      monthlyHoursWorked,
+    };
+  }
+
+  /**
+   * Reset user password (admin function)
+   */
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    logger.info(`Admin reset password for user: ${userId}`);
+  }
+}
+
+export const adminService = new AdminService();

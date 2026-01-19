@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "start": "node --loader tsx/esm src/server.ts",
+    "build": "tsc",
+    "postinstall": "prisma generate"
+  }
+}

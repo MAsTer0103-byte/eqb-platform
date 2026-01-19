@@ -1,0 +1,105 @@
+import { backlogQueue } from '../config/queue';
+import { emailService } from '../services/emailService';
+import prisma from '../database/prisma';
+import { logger } from '../utils/logger';
+import { addDays, subHours, startOfDay, endOfDay } from 'date-fns';
+
+/**
+ * Send appointment reminders for appointments happening in 24 hours
+ * This job runs every hour
+ */
+export async function sendAppointmentReminders(): Promise<any> {
+  try {
+    logger.info('Starting appointment reminder job...');
+
+    const now = new Date();
+    const reminderWindow = addDays(now, 1); // 24 hours from now
+    const windowStart = subHours(reminderWindow, 1);
+    const windowEnd = addDays(windowStart, 0);
+
+    // Get appointments scheduled for approximately 24 hours from now
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        startTime: {
+          gte: windowStart,
+          lte: windowEnd,
+        },
+        status: 'SCHEDULED',
+      },
+      include: {
+        client: true,
+        coworker: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const appointment of appointments) {
+      // Only send if client has email
+      if (!appointment.client.email) {
+        logger.warn(`Skipping reminder for appointment ${appointment.id} - no client email`);
+        continue;
+      }
+
+      const clientName = `${appointment.client.firstName} ${appointment.client.lastName}`;
+      const coworkerName = `${appointment.coworker.user.firstName} ${appointment.coworker.user.lastName}`;
+
+      const success = await emailService.sendAppointmentReminder(
+        appointment.client.email,
+        clientName,
+        appointment.startTime,
+        appointment.duration,
+        coworkerName
+      );
+
+      if (success) {
+        sentCount++;
+      } else {
+        failedCount++;
+      }
+    }
+
+    const result = {
+      totalAppointments: appointments.length,
+      remindersSent: sentCount,
+      remindersFailed: failedCount,
+    };
+
+    logger.info('Appointment reminder job completed:', result);
+
+    return result;
+  } catch (error) {
+    logger.error('Error in appointment reminder job:', error);
+    throw error;
+  }
+}
+
+/**
+ * Initialize email notification jobs
+ */
+export function initializeEmailJobs(): void {
+  // Process appointment reminder job
+  backlogQueue.process('appointment-reminders', async (job) => {
+    logger.info('Processing appointment reminders job:', job.id);
+    return await sendAppointmentReminders();
+  });
+
+  // Schedule reminder job to run every hour
+  backlogQueue.add(
+    'appointment-reminders',
+    {},
+    {
+      repeat: {
+        cron: '0 * * * *', // Every hour at minute 0
+      },
+      jobId: 'appointment-reminders-job',
+    }
+  );
+
+  logger.info('Email notification jobs initialized - Reminders run every hour');
+}
