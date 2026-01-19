@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, Button, Alert } from '@eqb/ui-components';
+import { Card } from '../../packages/ui-components/src/components/Card';
+import { Button } from '../../packages/ui-components/src/components/Button';
+import { Alert } from '../../packages/ui-components/src/components/Alert';
 
 interface DocumentUploadProps {
   clientId: string;

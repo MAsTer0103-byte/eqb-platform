@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Card, Button, Badge, Alert } from '@eqb/ui-components';
+import { Card } from '../../../../../packages/ui-components/src/components/Card';
+import { Button } from '../../../../../packages/ui-components/src/components/Button';
+import { Badge } from '../../../../../packages/ui-components/src/components/Badge';
+import { Alert } from '../../../../../packages/ui-components/src/components/Alert';
 import ClientForm from '@/components/clients/ClientForm';
 import DocumentUpload from '@/components/clients/DocumentUpload';
 

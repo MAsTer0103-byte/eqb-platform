@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, Button } from '@eqb/ui-components';
+import { Card } from '../../packages/ui-components/src/components/Card';
+import { Button } from '../../packages/ui-components/src/components/Button';
 import Link from 'next/link';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 

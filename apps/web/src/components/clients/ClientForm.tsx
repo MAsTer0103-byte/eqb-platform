@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Button, Alert } from '@eqb/ui-components';
+import { Card } from '../../packages/ui-components/src/components/Card';
+import { Button } from '../../packages/ui-components/src/components/Button';
+import { Alert } from '../../packages/ui-components/src/components/Alert';
 
 interface ClientFormProps {
   initialData?: any;

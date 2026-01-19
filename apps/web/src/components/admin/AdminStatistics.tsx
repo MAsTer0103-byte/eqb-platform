@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '@eqb/ui-components';
+import { Card } from '../../packages/ui-components/src/components/Card';
 
 interface SystemStatistics {
   totalUsers: number;
