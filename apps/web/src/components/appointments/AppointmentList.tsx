@@ -7,7 +7,7 @@ import React from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Appointment } from '@eqb/shared-types';
+import type { Appointment } from '@eqb/shared-types';
 
 interface AppointmentListProps {
   appointments: Appointment[];

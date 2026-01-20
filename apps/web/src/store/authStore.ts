@@ -4,7 +4,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { User } from '@eqb/shared-types';
+import type { User } from '@eqb/shared-types';
 
 interface AuthStore {
   user: User | null;

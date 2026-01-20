@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Appointment } from '@eqb/shared-types';
+import type { Appointment } from '@eqb/shared-types';
 
 export const AppointmentCalendar: React.FC = () => {
   const [_appointments, _setAppointments] = useState<Appointment[]>([]);
