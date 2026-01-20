@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/Button';
 import { Appointment } from '@eqb/shared-types';
 
 export const AppointmentCalendar: React.FC = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [_appointments, _setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_isLoading, _setIsLoading] = useState(false);
+  const [_error, _setError] = useState<string | null>(null);
 
   const daysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
