@@ -5,8 +5,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '../../../packages/ui-components/src/components/Button';
-import { Card } from '../../../packages/ui-components/src/components/Card';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

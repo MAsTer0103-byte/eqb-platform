@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '../../packages/ui-components/src/components/Card';
-import { Button } from '../../packages/ui-components/src/components/Button';
-import { Alert } from '../../packages/ui-components/src/components/Alert';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
 
 interface ClientFormProps {
   initialData?: any;

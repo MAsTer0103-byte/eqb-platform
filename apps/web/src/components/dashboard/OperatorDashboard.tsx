@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '../../packages/ui-components/src/components/Card';
-import { Button } from '../../packages/ui-components/src/components/Button';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 

@@ -4,9 +4,9 @@
 'use client';
 
 import React from 'react';
-import { Card } from '../../packages/ui-components/src/components/Card';
-import { Badge } from '../../packages/ui-components/src/components/Badge';
-import { Button } from '../../packages/ui-components/src/components/Button';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Appointment } from '@eqb/shared-types';
 
 interface AppointmentListProps {

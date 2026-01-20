@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '../../packages/ui-components/src/components/Card';
+import { Card } from '@/components/ui/Card';
 
 interface SystemStatistics {
   totalUsers: number;
