@@ -404,7 +404,7 @@ export default function ClientDetailPage() {
                           {rel.coworker.user.lastName}
                         </p>
                         {rel.isPrimary && (
-                          <Badge variant="primary" className="mt-1">
+                          <Badge variant="success" className="mt-1">
                             Primario
                           </Badge>
                         )}
