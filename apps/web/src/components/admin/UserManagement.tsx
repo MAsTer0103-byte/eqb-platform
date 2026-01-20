@@ -210,14 +210,14 @@ export default function UserManagement() {
                     </h3>
                     <Badge
                       variant={
-                        user.role === 'ADMIN' ? 'primary' : 'secondary'
+                        user.role === 'ADMIN' ? 'success' : 'default'
                       }
                     >
                       {user.role}
                     </Badge>
                     <Badge
                       variant={
-                        user.status === 'ACTIVE' ? 'success' : 'secondary'
+                        user.status === 'ACTIVE' ? 'success' : 'warning'
                       }
                     >
                       {user.status}
