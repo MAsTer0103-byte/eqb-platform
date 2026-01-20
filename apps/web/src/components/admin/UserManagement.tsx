@@ -174,7 +174,7 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && <Alert type="error" message={error} />}
 
       {/* Header with filters */}
       <div className="flex justify-between items-center">

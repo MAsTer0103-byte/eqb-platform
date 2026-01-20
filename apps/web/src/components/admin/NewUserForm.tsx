@@ -63,7 +63,7 @@ export default function NewUserForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && <Alert type="error" message={error} />}
 
       <Card>
         <div className="p-6">

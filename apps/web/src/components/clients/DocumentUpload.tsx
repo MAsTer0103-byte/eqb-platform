@@ -119,11 +119,9 @@ export default function DocumentUpload({
       <div className="p-6">
         <h3 className="text-lg font-semibold mb-4">Carica Documento</h3>
 
-        {error && <Alert variant="error" className="mb-4">{error}</Alert>}
+        {error && <Alert type="error" message={error} />}
         {success && (
-          <Alert variant="success" className="mb-4">
-            Documento caricato con successo!
-          </Alert>
+          <Alert type="success" message="Documento caricato con successo!" />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

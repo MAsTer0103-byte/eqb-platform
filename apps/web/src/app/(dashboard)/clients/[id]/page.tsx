@@ -159,7 +159,7 @@ export default function ClientDetailPage() {
   if (error || !client) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Alert variant="error">{error || 'Cliente non trovato'}</Alert>
+        <Alert type="error" message={error || 'Cliente non trovato'} />
         <Link href="/dashboard/clients">
           <Button variant="secondary" className="mt-4">
             Torna ai Clienti
