@@ -122,11 +122,11 @@ export default function ClientList({ coworkerId }: ClientListProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {client.firstName} {client.lastName}
+                        {client.name}
                       </h3>
                       <Badge
                         variant={
-                          client.status === 'ACTIVE' ? 'success' : 'secondary'
+                          client.status === 'ACTIVE' ? 'success' : 'warning'
                         }
                       >
                         {client.status}
@@ -152,29 +152,7 @@ export default function ClientList({ coworkerId }: ClientListProps) {
                           <span>{client.city}</span>
                         </div>
                       )}
-                      {client._count && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">Appuntamenti:</span>
-                          <span>{client._count.appointments || 0}</span>
-                        </div>
-                      )}
                     </div>
-
-                    {client.coworkers && client.coworkers.length > 0 && (
-                      <div className="mt-3">
-                        <span className="text-sm font-medium text-gray-700">
-                          Operatori:{' '}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {client.coworkers
-                            .map(
-                              (rel) =>
-                                `${rel.coworker.user.firstName} ${rel.coworker.user.lastName}`
-                            )
-                            .join(', ')}
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex gap-2 ml-4">
