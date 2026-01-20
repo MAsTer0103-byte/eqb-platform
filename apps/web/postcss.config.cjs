@@ -1,5 +1,6 @@
-const nextConfig = {
-  basePath: '',
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
 };
-
-module.exports = nextConfig;
