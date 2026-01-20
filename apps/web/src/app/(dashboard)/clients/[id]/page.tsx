@@ -201,7 +201,7 @@ export default function ClientDetailPage() {
                 {client.firstName} {client.lastName}
               </h1>
               <Badge
-                variant={client.status === 'ACTIVE' ? 'success' : 'secondary'}
+                variant={client.status === 'ACTIVE' ? 'success' : 'warning'}
               >
                 {client.status}
               </Badge>
